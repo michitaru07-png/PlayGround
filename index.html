@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#05070f" />
+  <meta name="description" content="Neon Fist: arena beat 'em up de supervivencia con físicas ragdoll, combate aéreo y parkour de paredes." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2305070f'/%3E%3Cg fill='none' stroke='%2339f5ff' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='16' cy='8' r='3.4'/%3E%3Cpath d='M16 11.5v8M16 14l-5.5 4M16 14l5.5 4M16 19.5l-4 6M16 19.5l4 6'/%3E%3C/g%3E%3C/svg%3E" />
+  <title>Neon Fist · Ragdoll Arena</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="game" aria-label="Arena de combate Neon Fist"></canvas>
+
+    <div class="screen-fx" aria-hidden="true">
+      <div class="scanlines"></div>
+      <div class="vignette"></div>
+      <div class="grain"></div>
+    </div>
+
+    <!-- ============ HUD ============ -->
+    <header class="hud" id="hud">
+      <div class="fighter-card">
+        <div class="avatar" aria-hidden="true">
+          <svg viewBox="0 0 40 40" role="img">
+            <circle cx="20" cy="9" r="5.2"/>
+            <path d="M20 14.5v11M20 18l-7 5M20 18l7 5M20 25.5l-5 8M20 25.5l5 8"/>
+          </svg>
+          <span class="avatar-pulse"></span>
+        </div>
+        <div class="meters">
+          <div class="meter-label">
+            <span class="fighter-name">VOLT <em>// AZUL</em></span>
+            <span class="meter-number" id="hpText">100</span>
+          </div>
+          <div class="meter meter-hp">
+            <div class="meter-fill" id="hpFill"></div>
+            <div class="meter-ghost" id="hpGhost"></div>
+            <div class="meter-ticks" aria-hidden="true"></div>
+          </div>
+          <div class="meter-label meter-label-battery">
+            <span>BATERÍA <em id="batteryState">CARGANDO</em></span>
+            <span class="meter-number" id="batteryText">0%</span>
+          </div>
+          <div class="meter meter-battery" id="batteryMeter">
+            <div class="meter-fill" id="batteryFill"></div>
+            <div class="meter-ticks" aria-hidden="true"></div>
+            <div class="battery-spark" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="run-stats" aria-label="Estadísticas de la partida">
+        <div class="stat">
+          <span class="stat-label">OLEADA ACTUAL</span>
+          <strong class="stat-value" id="waveValue">01</strong>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-label">ENEMIGOS DERROTADOS</span>
+          <strong class="stat-value" id="killValue">00</strong>
+        </div>
+      </div>
+
+      <div class="hud-actions">
+        <button class="icon-btn" id="soundBtn" type="button" aria-label="Silenciar sonido" title="Sonido">
+          <svg class="icon-sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5c1.4 1 2 2.1 2 3.5s-.6 2.5-2 3.5M18.8 6c2.1 1.7 3.2 3.7 3.2 6s-1.1 4.3-3.2 6"/></svg>
+          <svg class="icon-sound-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+        </button>
+        <button class="icon-btn pause-btn" id="pauseBtn" type="button" aria-label="Pausa" title="Pausa">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+        </button>
+      </div>
+
+      <div class="combo-display" id="comboDisplay" aria-live="polite">
+        <span class="combo-count" id="comboCount">0</span>
+        <span class="combo-word">GOLPES</span>
+        <span class="combo-rank" id="comboRank">EN RACHA</span>
+        <div class="combo-timer"><i id="comboTimer"></i></div>
+      </div>
+    </header>
+
+    <div class="banner" id="banner" aria-live="polite">
+      <span class="banner-kicker" id="bannerKicker">OLEADA 01</span>
+      <span class="banner-title" id="bannerTitle">SOBREVIVE</span>
+      <span class="banner-sub" id="bannerSub">Los rojos atacan por ambos lados</span>
+    </div>
+
+    <div class="context-tip" id="contextTip" aria-live="polite"></div>
+
+    <!-- ============ TOUCH / MOUSE CONTROLS ============ -->
+    <section class="controls" id="controls" aria-label="Controles del juego">
+      <div class="dpad-wrap">
+        <div class="dpad" role="group" aria-label="Movimiento">
+          <button class="pad-btn pad-left" type="button" data-hold="left" aria-label="Mover izquierda">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <button class="pad-btn pad-right" type="button" data-hold="right" aria-label="Mover derecha">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+          <button class="pad-btn pad-down" type="button" data-hold="down" aria-label="Agacharse">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>
+          </button>
+          <div class="dpad-hub" aria-hidden="true"></div>
+        </div>
+        <span class="control-caption">MOVER · AGACHAR</span>
+      </div>
+
+      <div class="action-cluster">
+        <button class="action-btn action-special" id="specialBtn" type="button" data-press="special" aria-label="Especial o batería">
+          <span class="action-ring"></span>
+          <span class="action-icon">ϟ</span>
+          <span class="action-label">ESPECIAL</span>
+          <span class="charge-pip" id="specialCharge">100%</span>
+        </button>
+
+        <div class="action-grid">
+          <button class="action-btn action-grab" type="button" data-press="grab" aria-label="Agarre o llave">
+            <span class="action-icon">◉</span><span class="action-label">AGARRE</span>
+          </button>
+          <button class="action-btn action-heavy" type="button" data-press="heavy" aria-label="Ataque fuerte">
+            <span class="action-icon">✦</span><span class="action-label">FUERTE</span>
+          </button>
+          <button class="action-btn action-light" type="button" data-press="light" aria-label="Ataque rápido">
+            <span class="action-icon">✕</span><span class="action-label">RÁPIDO</span>
+          </button>
+        </div>
+
+        <button class="action-btn action-jump" type="button" data-press="jump" aria-label="Saltar">
+          <span class="action-icon">↑</span><span class="action-label">SALTO</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ MAIN MENU ============ -->
+    <section class="screen menu-screen" id="menuScreen" aria-labelledby="gameTitle">
+      <div class="menu-panel">
+        <div class="menu-topline"><span>STICK SURVIVAL</span><span class="menu-topline-dot"></span><span>VOL. 01</span></div>
+        <div class="logo-lockup">
+          <span class="logo-kicker">RAGDOLL ARENA</span>
+          <h1 id="gameTitle">NEON <span>FIST</span></h1>
+          <div class="logo-rule"><i></i><span>ARCADE BEAT 'EM UP</span><i></i></div>
+        </div>
+        <p class="menu-tagline">Un stickman. Una azotea. Oleadas sin fin.<br/>Golpea, agarra, lanza y usa las paredes.</p>
+
+        <div class="menu-actions">
+          <button class="btn btn-primary" id="startBtn" type="button" aria-label="Play">
+            <span class="btn-shine"></span>
+            <span class="btn-label">JUGAR</span>
+            <span class="btn-sub">ENTRAR A LA ARENA</span>
+          </button>
+          <div class="menu-secondary">
+            <button class="btn btn-ghost" id="howBtn" type="button">CÓMO JUGAR</button>
+            <button class="btn btn-ghost" id="menuSoundBtn" type="button">SONIDO: SÍ</button>
+          </div>
+        </div>
+
+        <div class="menu-footer">
+          <div class="feature-pills">
+            <span><i class="dot cyan"></i> WALL PARKOUR</span>
+            <span><i class="dot red"></i> RAGDOLL</span>
+            <span><i class="dot yellow"></i> BULLET TIME</span>
+          </div>
+          <p>Sin anuncios obligatorios · Sin compras · Sin descargas</p>
+        </div>
+      </div>
+
+      <aside class="menu-side" aria-label="Resumen de mecánicas">
+        <div class="side-card">
+          <span class="side-index">01</span>
+          <h3>CASTIGA EN EL AIRE</h3>
+          <p>Lanza a un enemigo contra la multitud o atrápalo en el aire para un suplex sísmico.</p>
+        </div>
+        <div class="side-card">
+          <span class="side-index">02</span>
+          <h3>USA LA PARED</h3>
+          <p>Corre contra un muro, apóyate y salta para desatar una patada descendente.</p>
+        </div>
+        <div class="side-card">
+          <span class="side-index">03</span>
+          <h3>CARGA LA BATERÍA</h3>
+          <p>Los golpes limpios cargan energía. Al 100%, activa cámara lenta y una patada eléctrica.</p>
+        </div>
+      </aside>
+
+      <div class="menu-version">BUILD 1.0 · CANVAS ENGINE · 60 FPS</div>
+    </section>
+
+    <!-- ============ HOW TO PLAY ============ -->
+    <section class="screen sheet-screen hidden" id="howScreen" aria-labelledby="howTitle">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <span class="sheet-kicker">MANUAL DE COMBATE</span>
+            <h2 id="howTitle">CÓMO JUGAR</h2>
+          </div>
+          <button class="sheet-close" id="howClose" type="button" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="sheet-columns">
+          <div class="move-list">
+            <div class="move-row"><span class="move-keys">J <i>/</i> RÁPIDO</span><span class="move-name">Combo de 3 golpes</span></div>
+            <div class="move-row"><span class="move-keys">K <i>/</i> FUERTE</span><span class="move-name">Gancho pesado con knockback</span></div>
+            <div class="move-row"><span class="move-keys">↓ + K</span><span class="move-name">Golpe del Dragón · lanza al techo</span></div>
+            <div class="move-row"><span class="move-keys">K en el aire</span><span class="move-name">Patada Giratoria de Viento · 360°</span></div>
+            <div class="move-row"><span class="move-keys">L <i>/</i> AGARRE</span><span class="move-name">Agarra y vuelve a pulsar para lanzar</span></div>
+            <div class="move-row"><span class="move-keys">L en el aire</span><span class="move-name">Agarre aéreo + Suplex con daño en área</span></div>
+            <div class="move-row"><span class="move-keys">U <i>/</i> ESPECIAL</span><span class="move-name">Bullet time + patada eléctrica (100%)</span></div>
+            <div class="move-row"><span class="move-keys">Espacio <i>/</i> SALTO</span><span class="move-name">Salta. En la pared: patada de rebote</span></div>
+          </div>
+          <div class="tips-list">
+            <div class="tip-card red">
+              <span class="tip-chip">ROJOS</span>
+              <p>Rápidos y frágiles. Los golpes ligeros los mandan a volar.</p>
+            </div>
+            <div class="tip-card gold">
+              <span class="tip-chip">VERDES / AMARILLOS</span>
+              <p>Blindados: ignoran tus golpes simples. Úsalos como proyectil, hazles un suplex, un muro o el especial.</p>
+            </div>
+            <div class="tip-card cyan">
+              <span class="tip-chip">BATERÍA</span>
+              <p>Cada impacto válido recarga energía. Al 100% el botón especial se ilumina.</p>
+            </div>
+            <div class="tip-card dim">
+              <span class="tip-chip">TÁCTIL</span>
+              <p>Multitáctil real: mantén dirección y pulsa acción a la vez. En escritorio usa las teclas indicadas.</p>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary sheet-cta" id="howBack" type="button">VOLVER</button>
+      </div>
+    </section>
+
+    <!-- ============ PAUSE ============ -->
+    <section class="screen pause-screen hidden" id="pauseScreen" aria-labelledby="pauseTitle">
+      <div class="pause-panel">
+        <span class="sheet-kicker">COMBATE SUSPENDIDO</span>
+        <h2 id="pauseTitle">PAUSA</h2>
+        <div class="pause-stats">
+          <div><span>OLEADA ACTUAL</span><b id="pauseWave">01</b></div>
+          <div><span>ENEMIGOS DERROTADOS</span><b id="pauseKills">00</b></div>
+          <div><span>MEJOR COMBO</span><b id="pauseCombo">0</b></div>
+        </div>
+        <div class="pause-actions">
+          <button class="btn btn-primary" id="resumeBtn" type="button">CONTINUAR</button>
+          <button class="btn btn-ghost" id="pauseRestart" type="button">REINICIAR PARTIDA</button>
+          <button class="btn btn-quiet" id="pauseMenu" type="button">MENÚ PRINCIPAL</button>
+        </div>
+        <p class="pause-note">P / ESC para continuar</p>
+      </div>
+    </section>
+
+    <!-- ============ GAME OVER ============ -->
+    <section class="screen gameover-screen hidden" id="gameoverScreen" aria-labelledby="goTitle">
+      <div class="gameover-panel">
+        <span class="gameover-kicker" id="goKicker">FIN DEL COMBATE</span>
+        <h2 id="goTitle">HAS CAÍDO</h2>
+        <p class="gameover-copy" id="goCopy">La arena reclama otro nombre. Pero los neones siguen encendidos.</p>
+        <div class="go-stats">
+          <div><span>OLEADA ACTUAL</span><b id="goWave">01</b></div>
+          <div><span>ENEMIGOS DERROTADOS</span><b id="goKills">00</b></div>
+          <div><span>MEJOR COMBO</span><b id="goCombo">0</b></div>
+          <div><span>TIEMPO</span><b id="goTime">00:00</b></div>
+        </div>
+
+        <div class="revive-offer hidden" id="reviveOffer">
+          <div class="offer-head">
+            <span class="offer-tag">OPCIÓN ÉTICA</span>
+            <span class="offer-deaths" id="offerDeaths">2 CAÍDAS CONSECUTIVAS</span>
+          </div>
+          <p>¿Ver un anuncio corto para revivir con <strong>50% de vida</strong> y continuar?</p>
+          <button class="btn btn-revive" id="reviveBtn" type="button">
+            <span class="btn-label">VER ANUNCIO Y REVIVIR</span>
+            <span class="btn-sub">50% HP · CONTINÚA LA OLEADA</span>
+          </button>
+          <span class="offer-fineprint">Anuncio simulado · opcional · puedes saltarlo · al elegir, el contador vuelve a 0</span>
+        </div>
+
+        <div class="gameover-actions">
+          <button class="btn btn-primary" id="retryBtn" type="button">REINICIAR</button>
+          <button class="btn btn-ghost" id="goMenuBtn" type="button">MENÚ PRINCIPAL</button>
+        </div>
+        <p class="gameover-note hidden" id="goAdNote">Sin anuncios en esta caída.</p>
+      </div>
+    </section>
+
+    <!-- ============ SIMULATED AD ============ -->
+    <section class="screen ad-screen hidden" id="adScreen" aria-labelledby="adTitle">
+      <div class="ad-panel">
+        <div class="ad-topline">
+          <span>ANUNCIO SIMULADO</span>
+          <span class="ad-countdown" id="adCountdown">5</span>
+        </div>
+        <div class="ad-creative">
+          <div class="ad-badge">NEON</div>
+          <h2 id="adTitle">ENERGÍA<br/>SIN LÍMITES</h2>
+          <p>Imagina un anuncio aquí. Mientras tanto, tu revivir está en camino.</p>
+          <div class="ad-brand">SIMULACIÓN ÉTICA · SIN RASTREO · SIN COMPRA</div>
+          <div class="ad-orbit" aria-hidden="true"></div>
+        </div>
+        <div class="ad-progress"><i id="adProgress"></i></div>
+        <div class="ad-actions">
+          <button class="btn btn-ghost" id="adSkip" type="button">SALTAR ANUNCIO</button>
+          <button class="btn btn-primary hidden" id="adClaim" type="button">REVIVIR AHORA</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="boot-error hidden" id="bootError">
+      <strong>No se pudo iniciar el motor</strong>
+      <p id="bootErrorText"></p>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
