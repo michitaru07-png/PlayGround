@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#070a15" />
+<title>STICK SMASH — Pelea callejera</title>
+<meta name="description" content="Stick Smash: un beat 'em up de stickmen con combos, enemigos y un jefe final. Juega en el navegador." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23070a15'/%3E%3Ccircle cx='32' cy='17' r='7' fill='%2341f6ff'/%3E%3Cpath d='M32 25v17M32 30l-12 7M32 30l12-7M32 42l-9 14M32 42l9 14' stroke='%23f2f7ff' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="game" class="is-veiled" aria-label="Arena de pelea Stick Smash"></canvas>
+  <div class="screen-fx" aria-hidden="true"></div>
+
+  <div id="hud" class="hud hidden" aria-live="off">
+    <div class="hud-row">
+      <div class="player-card">
+        <div class="avatar" aria-hidden="true">
+          <canvas id="avatarCanvas" width="96" height="96"></canvas>
+          <span class="avatar-tag">P1</span>
+        </div>
+        <div class="bars">
+          <div class="bar-labels"><span class="fighter-name">TÚ</span><span id="hpText">100</span></div>
+          <div class="bar hp-track"><div class="hp-ghost" id="hpGhost"></div><div class="hp-fill" id="hpFill"></div></div>
+          <div class="bar-labels rage-labels"><span>FURIA</span><span id="rageHint" class="rage-hint">ESPECIAL · L</span></div>
+          <div class="bar rage-track"><div class="rage-fill" id="rageFill"></div></div>
+        </div>
+      </div>
+
+      <div class="wave-chip">
+        <span class="wave-kicker">OLEADA</span>
+        <span class="wave-num" id="waveNum">1</span>
+        <span class="wave-total">/ 5</span>
+      </div>
+
+      <div class="score-card">
+        <div class="score-line"><span class="score-kicker">PUNTOS</span><span id="score">0</span></div>
+        <div class="score-line best"><span class="score-kicker">MEJOR</span><span id="bestScore">0</span></div>
+        <div class="hud-buttons">
+          <button id="muteBtn" class="icon-btn" type="button" aria-label="Silenciar sonido">🔊</button>
+          <button id="pauseBtn" class="icon-btn" type="button" aria-label="Pausa">❚❚</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="combo" class="combo hidden">
+      <span id="comboCount">0</span><span class="combo-x">COMBO</span>
+      <div id="comboRank" class="combo-rank"></div>
+    </div>
+
+    <div id="bossBar" class="boss-bar hidden">
+      <div class="boss-head"><span>EL REY</span><span>JEFE FINAL</span></div>
+      <div class="bar boss-track"><div class="boss-fill" id="bossFill"></div></div>
+    </div>
+  </div>
+
+  <div id="banner" class="banner" aria-live="polite">
+    <div class="banner-main" id="bannerMain"></div>
+    <div class="banner-sub" id="bannerSub"></div>
+  </div>
+
+  <div id="hint" class="hint hidden">
+    <span class="hint-key">J</span> puñetazo
+    <span class="hint-key">K</span> patada
+    <span class="hint-key">ESPACIO</span> saltar
+    <span class="hint-key">SHIFT</span> bloquear
+    <span class="hint-key">L</span> especial
+  </div>
+
+  <div id="title" class="overlay title-overlay">
+    <div class="title-fade" aria-hidden="true"></div>
+    <div class="menu-shell">
+      <header class="title-head">
+        <div class="eyebrow"><span class="dot"></span> PELEA CALLEJERA · NEÓN · 1 JUGADOR</div>
+        <h1 class="logo" aria-label="Stick Smash">
+          <span class="logo-line logo-stick">STICK</span>
+          <span class="logo-line logo-smash">SMASH</span>
+        </h1>
+        <p class="tagline">GOLPEA. ROMPE. REPITE.</p>
+      </header>
+
+      <div class="title-panel">
+        <button id="startBtn" class="cta" type="button" aria-label="Play game">
+          <span class="cta-icon" aria-hidden="true">▶</span>
+          <span class="cta-text">JUGAR</span>
+          <span class="cta-sub">5 oleadas · 1 jefe</span>
+        </button>
+
+        <div class="controls-card">
+          <div class="controls-title">CONTROLES</div>
+          <ul class="controls-grid">
+            <li><b>WASD</b><span>moverte</span></li>
+            <li><b>J</b><span>puñetazo / combo</span></li>
+            <li><b>K</b><span>patada fuerte</span></li>
+            <li><b>ESPACIO</b><span>saltar</span></li>
+            <li><b>SHIFT</b><span>bloquear</span></li>
+            <li><b>L</b><span>especial (furia)</span></li>
+            <li><b>Q</b><span>esquivar</span></li>
+            <li><b>ESC</b><span>pausa</span></li>
+          </ul>
+          <p class="touch-note">En móvil: joystick a la izquierda y botones a la derecha.</p>
+        </div>
+
+        <div class="title-foot">
+          <div class="best-chip">MEJOR PUNTUACIÓN <strong id="titleBest">0</strong></div>
+          <button id="titleMute" class="ghost-btn" type="button" aria-label="Silenciar sonido">🔊 SONIDO</button>
+        </div>
+      </div>
+      <p class="press-start">Pulsa <b>ENTER</b> o toca JUGAR</p>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay center-overlay hidden">
+    <div class="modal">
+      <div class="modal-kicker">02 // INTERMEDIO</div>
+      <h2>PAUSA</h2>
+      <p>Respira. La calle te espera.</p>
+      <div class="modal-actions">
+        <button id="resumeBtn" class="cta small" type="button"><span class="cta-icon">▶</span><span class="cta-text">SEGUIR</span></button>
+        <button id="restartBtn" class="ghost-btn" type="button">REINICIAR</button>
+        <button id="menuBtn" class="ghost-btn" type="button">MENÚ</button>
+      </div>
+      <div class="modal-foot">
+        <button id="pauseMute" class="ghost-btn" type="button" aria-label="Silenciar sonido">🔊 SONIDO</button>
+        <span class="modal-tip">ESC para volver</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameover" class="overlay center-overlay hidden">
+    <div class="modal danger">
+      <div class="modal-kicker">03 // DERROTA</div>
+      <h2>K.O.</h2>
+      <p>La calle gana esta ronda. Levántate otra vez.</p>
+      <div class="stats">
+        <div><span>OLEADA</span><strong id="goWave">1 / 5</strong></div>
+        <div><span>PUNTOS</span><strong id="goScore">0</strong></div>
+        <div><span>MEJOR COMBO</span><strong id="goCombo">0</strong></div>
+        <div><span>K.O.S</span><strong id="goKos">0</strong></div>
+      </div>
+      <div class="modal-actions">
+        <button id="retryBtn" class="cta small" type="button"><span class="cta-icon">↻</span><span class="cta-text">OTRA VEZ</span></button>
+        <button id="overMenuBtn" class="ghost-btn" type="button">MENÚ</button>
+      </div>
+      <p class="record" id="goRecord"></p>
+    </div>
+  </div>
+
+  <div id="victory" class="overlay center-overlay hidden">
+    <div class="modal win">
+      <div class="modal-kicker">04 // VICTORIA</div>
+      <h2>CIUDAD<br />LIMPIADA</h2>
+      <p>Has tumbado al Rey. La calle vuelve a respirar… por ahora.</p>
+      <div class="stats">
+        <div><span>PUNTOS</span><strong id="winScore">0</strong></div>
+        <div><span>MEJOR COMBO</span><strong id="winCombo">0</strong></div>
+        <div><span>K.O.S</span><strong id="winKos">0</strong></div>
+        <div><span>TIEMPO</span><strong id="winTime">0:00</strong></div>
+      </div>
+      <div class="modal-actions">
+        <button id="againBtn" class="cta small" type="button"><span class="cta-icon">▶</span><span class="cta-text">JUGAR OTRA VEZ</span></button>
+        <button id="winMenuBtn" class="ghost-btn" type="button">MENÚ</button>
+      </div>
+      <p class="record" id="winRecord"></p>
+    </div>
+  </div>
+
+  <div id="touch" class="touch hidden" aria-hidden="true">
+    <div class="joystick" id="joystick">
+      <div class="stick-ring"></div>
+      <div class="stick-knob" id="stickKnob"></div>
+      <span class="stick-label">MOVER</span>
+    </div>
+    <div class="touch-buttons">
+      <button class="tbtn tbtn-def" data-action="def" type="button"><b>DEF</b><small>toca: esquiva</small></button>
+      <button class="tbtn tbtn-jump" data-action="jump" type="button"><b>SALTO</b><small>↑</small></button>
+      <button class="tbtn tbtn-special" data-action="special" type="button"><b>FURIA</b><small>⚡</small></button>
+      <button class="tbtn tbtn-punch" data-action="punch" type="button"><b>PUÑO</b><small>J</small></button>
+      <button class="tbtn tbtn-kick" data-action="kick" type="button"><b>PATADA</b><small>K</small></button>
+    </div>
+  </div>
+
+  <div id="flash" class="flash" aria-hidden="true"></div>
+  <noscript><div class="noscript">Este juego necesita JavaScript activado.</div></noscript>
+</div>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
