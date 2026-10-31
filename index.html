@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#050811">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="description" content="Neon Stick: arena de supervivencia beat 'em up con combate fluido, parkour de pared y físicas de impacto exageradas.">
+  <title>NEON STICK — Arena de Supervivencia</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23050b16'/%3E%3Cpath d='M32 10a9 9 0 100 18 9 9 0 000-18zM14 56c1-13 8-20 18-20s17 7 18 20' fill='none' stroke='%2335e9ff' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app" data-screen="menu" aria-label="Neon Stick, arena de supervivencia">
+    <canvas id="stage" aria-label="Arena de combate 2D"></canvas>
+
+    <div class="atmosphere" aria-hidden="true">
+      <div class="scanlines"></div>
+      <div class="grain"></div>
+      <div class="edge-vignette"></div>
+      <div id="screenFlash" class="screen-flash"></div>
+      <div id="speedLines" class="speed-lines"></div>
+    </div>
+
+    <header id="hud" class="hud" aria-label="Estado del combate">
+      <div class="fighter-panel">
+        <div class="portrait" aria-hidden="true">
+          <svg viewBox="0 0 48 48"><path d="M24 7a8 8 0 100 16 8 8 0 000-16zM9 43c1-10 7-15 15-15s14 5 15 15" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>
+          <i></i>
+        </div>
+        <div class="vitals">
+          <div class="vital-head"><span class="callsign">VOLT <b>// AZUL</b></span><span id="hpText" class="vital-number">100</span></div>
+          <div class="bar hp-bar"><i id="hpFill"></i><span class="bar-glint"></span><em id="hpGhost"></em></div>
+          <div class="vital-head energy-head"><span class="callsign">BATERÍA</span><span id="energyText" class="vital-number">35%</span></div>
+          <div class="battery" id="battery" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <div class="round-panel">
+        <div class="round-block"><span>OLEADA ACTUAL</span><strong id="waveText">01</strong></div>
+        <div class="round-slash"></div>
+        <div class="round-block kills"><span>ENEMIGOS DERROTADOS</span><strong id="killText">00</strong></div>
+      </div>
+    </header>
+
+    <div id="comboReadout" class="combo-readout" aria-live="polite">
+      <span id="comboNumber">0</span><div><b>GOLPES</b><small>CADENA</small></div>
+    </div>
+
+    <div id="waveBanner" class="wave-banner" aria-live="polite">
+      <span id="bannerKicker">OLEADA 01</span>
+      <strong id="bannerTitle">ENTREN ESPECTROS</strong>
+      <small id="bannerSub">SOBREVIVE. CARGA. RESPONDE.</small>
+    </div>
+
+    <div id="contextHint" class="context-hint"><kbd>AGACHAR</kbd> + <kbd>FUERTE</kbd> <b>GOLPE DEL DRAGÓN</b></div>
+
+    <div id="touch" class="touch-ui" aria-label="Controles táctiles">
+      <div class="dpad" role="group" aria-label="D-Pad de movimiento">
+        <button class="pad up" data-hold="up" aria-label="Saltar"><span>▲</span><small>SALTO</small></button>
+        <button class="pad left" data-hold="left" aria-label="Moverse a la izquierda"><span>◀</span></button>
+        <div class="pad-center" aria-hidden="true"><i></i></div>
+        <button class="pad right" data-hold="right" aria-label="Moverse a la derecha"><span>▶</span></button>
+        <button class="pad down" data-hold="down" aria-label="Agacharse"><span>▼</span><small>AGACHAR</small></button>
+      </div>
+
+      <div class="action-cluster" role="group" aria-label="Botones de acción">
+        <button class="action action-grab" data-press="grab" aria-label="Agarre o llave"><span class="action-glyph">⌁</span><b>AGARRE</b><kbd>L</kbd></button>
+        <button class="action action-heavy" data-press="heavy" aria-label="Ataque fuerte"><span class="action-glyph">✹</span><b>FUERTE</b><kbd>K</kbd></button>
+        <button class="action action-quick" data-press="quick" aria-label="Ataque rápido"><span class="action-glyph">ϟ</span><b>RÁPIDO</b><kbd>J</kbd></button>
+        <button class="action action-special" data-press="special" aria-label="Ataque especial con batería"><span class="special-ring"></span><span class="action-glyph">۞</span><b>ESPECIAL</b><small id="specialCost">100%</small></button>
+        <button class="action action-jump" data-press="jump" aria-label="Saltar"><span class="action-glyph">↟</span><b>SALTO</b><kbd>W</kbd></button>
+      </div>
+    </div>
+
+    <button id="muteBtn" class="utility mute" aria-label="Silenciar sonido" title="Sonido">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4z"/></svg>
+    </button>
+    <button id="pauseBtn" class="utility pause" aria-label="Pausa" title="Pausa"><span></span><span></span></button>
+
+    <section id="menu" class="overlay menu-screen">
+      <div class="menu-topline">
+        <span class="eyebrow"><i></i> PROTOCOLO 07 // ARENA NEÓN</span>
+        <span class="live-tag">EN VIVO</span>
+      </div>
+
+      <div class="menu-content">
+        <div class="title-lockup">
+          <p class="title-kicker">SUPERVIVENCIA <span>•</span> CUERPO A CUERPO</p>
+          <h1 class="game-title" aria-label="Neon Stick"><span>NEON</span><span>STICK</span></h1>
+          <div class="title-rule"><i></i><b>EL ÚLTIMO PUÑO EN PIE</b><i></i></div>
+          <p class="title-copy">Físicas imposibles. Parkour de pared. Una arena que nunca duerme. <br>Resiste las oleadas y convierte cada impacto en electricidad.</p>
+          <div class="menu-actions">
+            <button id="startBtn" class="btn primary" aria-label="Start"><span>JUGAR AHORA</span><i>→</i></button>
+            <button id="howBtn" class="btn ghost">CÓMO JUGAR</button>
+          </div>
+          <div class="menu-meta">
+            <span><b>5</b> MOVIMIENTOS</span>
+            <span><b>∞</b> OLEADAS</span>
+            <span><b>0</b> ANUNCIOS FORZADOS</span>
+          </div>
+        </div>
+
+        <aside class="move-card" aria-label="Movimientos especiales">
+          <div class="move-card-head"><span>MANUAL DE COMBATE</span><b>v.2.6</b></div>
+          <div class="move-row"><span class="move-key">↓ + K</span><div><b>GOLPE DEL DRAGÓN</b><small>Uppercut que lanza al techo</small></div><i>01</i></div>
+          <div class="move-row"><span class="move-key">FLANCOS + K</span><div><b>PATADA GIRATORIA DE VIENTO</b><small>Giro 360° contra dos flancos</small></div><i>02</i></div>
+          <div class="move-row"><span class="move-key">L + J</span><div><b>LANZAMIENTO</b><small>Usa la multitud como proyectil</small></div><i>03</i></div>
+          <div class="move-row"><span class="move-key">AIRE + L</span><div><b>SUPLEX AÉREO</b><small>Estrella al suelo. Daño en área</small></div><i>04</i></div>
+          <div class="move-row accent"><span class="move-key">MURO + W</span><div><b>PATADA COMETA</b><small>Salta del muro y cae en picado</small></div><i>05</i></div>
+          <div class="move-footer"><span>DISPOSITIVO</span><b>TÁCTIL / TECLADO</b><span class="signal">▮▮▮▮</span></div>
+        </aside>
+      </div>
+
+      <div class="menu-bottom">
+        <span>WASD / FLECHAS PARA MOVER</span>
+        <span class="desktop-only">J RÁPIDO · K FUERTE · L AGARRE · ESPACIO ESPECIAL</span>
+        <span>© 2087 NEON DISTRICT</span>
+      </div>
+    </section>
+
+    <section id="howPanel" class="overlay how-screen" hidden>
+      <div class="how-card">
+        <button id="closeHow" class="icon-close" aria-label="Cerrar">×</button>
+        <span class="eyebrow"><i></i> MANUAL TÁCTICO</span>
+        <h2>CÓMO <em>SOBREVIVIR</em></h2>
+        <div class="how-grid">
+          <article><span>01</span><h3>ENCADENA</h3><p>RÁPIDO tres veces para abrir la guardia. RÁPIDO + FUERTE para rematar.</p></article>
+          <article><span>02</span><h3>CARGAR</h3><p>Cada golpe normal llena la batería. Al 100%, el ESPECIAL libera cámara lenta.</p></article>
+          <article><span>03</span><h3>PARED</h3><p>Corre contra un muro y salta: patada cometa en diagonal hacia el centro.</p></article>
+          <article><span>04</span><h3>BLINDADOS</h3><p>Los verdes/amarillos ignoran golpes simples. Agarra, lanza o usa la batería.</p></article>
+        </div>
+        <div class="how-controls"><b>TECLADO</b><span>A / D mover</span><span>S agacharse</span><span>W saltar</span><span>J rápido</span><span>K fuerte</span><span>L agarrar</span><span>ESPACIO especial</span></div>
+      </div>
+    </section>
+
+    <section id="pausePanel" class="overlay pause-screen" hidden>
+      <div class="pause-card">
+        <span class="eyebrow"><i></i> SEÑAL EN PAUSA</span>
+        <h2>PAUSA</h2>
+        <div class="pause-actions">
+          <button id="resumeBtn" class="btn primary"><span>CONTINUAR</span><i>→</i></button>
+          <button id="restartPauseBtn" class="btn ghost">REINICIAR OLEADA</button>
+          <button id="menuPauseBtn" class="btn ghost">MENÚ PRINCIPAL</button>
+        </div>
+        <p>La arena espera. Tómate un segundo.</p>
+      </div>
+    </section>
+
+    <section id="gameover" class="overlay gameover-screen" hidden>
+      <div class="gameover-card">
+        <span id="goKicker" class="eyebrow"><i></i> SEÑAL PERDIDA</span>
+        <h2 id="goTitle">FUERA<br><em>DE COMBATE</em></h2>
+        <p id="goCopy">La arena reclamó otra ronda. Vuelve a levantarte.</p>
+        <div id="goStats" class="go-stats">
+          <div><span>OLEADA</span><b id="goWave">01</b></div>
+          <div><span>DERROTADOS</span><b id="goKills">00</b></div>
+          <div><span>MUERTE</span><b id="goDeath">01</b></div>
+        </div>
+        <div id="reviveOffer" class="revive-offer" hidden>
+          <div class="offer-plus">+</div>
+          <div class="offer-copy"><span>OPCIÓN DE RECUPERACIÓN</span><b>¿VER UN ANUNCIO CORTO PARA REVIVIR CON 50% DE VIDA?</b><small>Opcional. Sin rastreo. Puedes rechazarlo sin perder nada.</small></div>
+          <div class="offer-actions"><button id="watchAdBtn" class="btn tiny primary"><span>VER ANUNCIO</span><i>+50 HP</i></button><button id="declineAdBtn" class="btn tiny ghost">RECHAZAR</button></div>
+        </div>
+        <div class="go-actions">
+          <button id="restartBtn" class="btn primary"><span>REINICIAR</span><i>↻</i></button>
+          <button id="menuBtn" class="btn ghost">MENÚ PRINCIPAL</button>
+        </div>
+        <div class="go-foot"><span>PROTOCOLO ÉTICO: SIN ANUNCIOS EN LA PRIMERA CAÍDA</span><b id="deathPips">◆ ◇</b></div>
+      </div>
+    </section>
+
+    <section id="adPanel" class="overlay ad-screen" hidden>
+      <div class="ad-card">
+        <div class="ad-top"><span class="eyebrow"><i></i> RECUPERACIÓN PATROCINADA</span><span id="adTimer">4.0s</span></div>
+        <div class="ad-visual">
+          <div class="ad-orbit o1"></div><div class="ad-orbit o2"></div><div class="ad-orbit o3"></div>
+          <div class="ad-bolt">ϟ</div>
+          <p>NEON<br><em>ENERGY</em></p>
+          <small>ANUNCIO SIMULADO · SIN SEGUIMIENTO</small>
+        </div>
+        <div class="ad-progress"><i id="adFill"></i></div>
+        <div class="ad-bottom"><p>Mensaje local de 4 segundos. Tu partida queda pausada.</p><button id="skipAdBtn" class="btn tiny ghost" disabled>SALTAR · 2s</button></div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" role="status"></div>
+    <div id="rotateNotice" class="rotate-notice"><span>↻</span><b>GIRA EL DISPOSITIVO</b><small>La arena se adapta a tu pantalla</small></div>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
